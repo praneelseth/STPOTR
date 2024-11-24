@@ -112,6 +112,122 @@ def compute_fde(pred, gt):
     dist = np.linalg.norm(diff, axis=2)[:, -1].mean(axis=0)
     return dist.min() 
 
+def compute_mpjpe(pred, gt):
+    """
+    Computes the Mean Per Joint Position Error (MPJPE).
+    
+    Args:
+        pred (numpy array): Predicted poses [batch_size, seq_length, joint_dim*3]
+        gt (numpy array): Ground-truth poses [batch_size, seq_length, joint_dim*3]
+    
+    Returns:
+        float: Mean Per Joint Position Error (MPJPE).
+    """
+    differences = pred - gt
+    differences = differences.reshape(1069, 20, 16, 3)  # Reshape the last dimension to group joints into (X, Y, Z)
+    average_differences = np.mean(differences, axis=0) # Average across samples (axis 0)
+    euclidean_distances = np.linalg.norm(differences, axis=-1)  # Compute the Euclidean distance for each joint
+    average_distances = np.mean(euclidean_distances, axis=0) # Average across samples (axis=0)
+    
+    return average_distances # Average across all joints and all frames
+
+# def compute_mpjpe_over_time(pred, gt):
+#     """
+#     Computes MPJPE for each timestep in the sequence.
+    
+#     Args:
+#         pred (numpy array): Predicted joint positions [batch_size, seq_length, num_joints, joint_dim].
+#         gt (numpy array): Ground-truth joint positions [batch_size, seq_length, num_joints, joint_dim].
+    
+#     Returns:
+#         numpy array: MPJPE values for each timestep.
+#     """
+#     batch_size, seq_length, num_joints, joint_dim = pred.shape
+#     mpjpe_per_frame = []
+    
+#     for t in range(seq_length):
+#         frame_pred = pred[:, t, :, :]
+#         frame_gt = gt[:, t, :, :]
+#         diff = frame_pred - frame_gt
+#         dist = np.linalg.norm(diff, axis=2)  # Distance for each joint
+#         mpjpe = dist.mean()  # Average across all joints and sequences
+#         mpjpe_per_frame.append(mpjpe)
+    
+#     return np.array(mpjpe_per_frame)
+
+def compute_all_de(pred, gt):
+    diff = pred - gt
+    temp = np.linalg.norm(diff, axis=2)
+    my_list = []
+    print("size of array for DEs: ", temp.shape[1])
+    for i in range(temp.shape[1]):  # Loop over the number of columns
+        my_list.append(float(temp[:, i].mean(axis=0).min()))
+    
+    return my_list
+
+def plot_displacement_errors(de_values):
+    # Time intervals (0.1 seconds for each index)
+    time_intervals = np.arange(0.1, len(de_values) * 0.1 + 0.1, 0.1)
+
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(time_intervals, de_values, marker='o', linestyle='-', color='b')
+    
+    # Adding labels and title
+    plt.title('Displacement Errors Over Time')
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Displacement Error')
+    plt.grid(True)
+    plt.xticks(time_intervals)  # Optional: Show ticks for each time interval
+    plt.xlim([0.0, 2.1])
+    
+    # Show the plot
+    plt.show()
+
+def plot_joint_distances(average_distances):
+    """
+    Plots the 3D Euclidean distances for each joint across time steps.
+    
+    Parameters:
+    - average_distances (ndarray): A 2D array of shape (20, 16), where the first dimension 
+                                   represents time steps and the second represents joints.
+    """
+    time_steps = np.linspace(0.1, 2.0, num=20)  # Generate time steps from 0.1 to 2.0 seconds
+    
+    # Find the min and max Euclidean distances for the y-axis range
+    min_distance = np.min(average_distances)
+    max_distance = np.max(average_distances)
+
+    joint_labels = [
+        "Pelvis", "Right Hip", "Right Knee", "Right Ankle", 
+        "Left Hip", "Left Knee", "Left Ankle", "Spine1", "Neck", "Head", 
+        "Left Shoulder", "Left Elbow", "Left Wrist", "Right Shoulder", 
+        "Right Elbow", "Right Wrist"
+    ]
+
+    colors = plt.cm.tab20.colors[:16]
+    
+    # Set up the plot
+    plt.figure(figsize=(10, 6))
+    for joint_idx in range(average_distances.shape[1]):  # Iterate over joints (16 in total)
+        plt.plot(
+            time_steps, 
+            average_distances[:, joint_idx], 
+            label=joint_labels[joint_idx],
+            color=colors[joint_idx],
+            marker="o"
+        )
+    
+    # Configure the plot
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Average 3D Euclidean Distance (meters)")
+    plt.title("MPJPE Across Time Steps")
+    plt.ylim(min_distance - 0.1, max_distance + 0.1)  # Add a small buffer to the y-axis range
+    plt.legend(loc="upper right", bbox_to_anchor=(1.3, 1))  # Place the legend outside the plot
+    plt.grid(True, linestyle="--", alpha=0.7)
+    plt.tight_layout()
+    plt.show()
+
 def compute_stats(pred, gt, mrt):
     _,f,_ = gt.shape
     diff = pred - gt
@@ -156,7 +272,7 @@ def Calc_error_h36mdataset():
             traj_decoder_fn 
         )
       
-      model.load_state_dict(torch.load(args.model_file, map_location=_DEVICE))
+      model.load_state_dict(torch.load(args.model_file, map_location=_DEVICE, weights_only=True))
       model.to(_DEVICE)
       model.eval()
            
@@ -166,6 +282,7 @@ def Calc_error_h36mdataset():
       total_errors_traj = 0 
       total_ade_traj = 0
       total_fde_traj = 0     
+      total_mpjpe = 0     
 
       sample = next(iter(eval_dataset_fn))
 
@@ -215,24 +332,61 @@ def Calc_error_h36mdataset():
 
           preds = eval_dataset_fn.dataset.unnormalize(prediction)
           preds_traj = eval_dataset_fn.dataset.unnormalize_traj(traj_prediction)
+
+          print("preds shape: ", preds.shape)
+          print("gts shape: ", gts.shape)
+          print(type(preds))
+          print(type(gts))
+          print("preds traj shape: ", preds_traj.shape)
+          print("gts traj shape: ", gts_traj.shape)
+          print(type(preds_traj))
+          print(type(gts_traj))
+
+          
+
+          # Start here
+          # need to find out what format preds and preds_traj are in
+          # we are doing full pose
+          # 
+
+          preds_reshaped = preds.reshape(preds.shape[0], preds.shape[1], -1, 3)
+          gts_reshaped = gts.reshape(gts.shape[0], gts.shape[1], -1, 3)
           
           maximum_estimation_time = params['target_seq_len']/params['frame_rate']
           
           errors = compute_stats(preds,gts,maximum_estimation_time)
           ADE = compute_ade(preds,gts)
           FDE = compute_fde(preds,gts)
+          MPJPE = compute_mpjpe(preds, gts)
+        #   MPJPE_over_time = compute_mpjpe_over_time(preds_reshaped, gts_reshaped)
+          MY_DE = compute_all_de(preds,gts)
           total_errors += np.array(errors)      
           total_ade += ADE
-          total_fde += FDE  
+          total_fde += FDE
+          total_mpjpe = MPJPE  
           
           errors_traj = compute_stats(preds_traj,gts_traj,maximum_estimation_time)
           ADE_traj = compute_ade(preds_traj,gts_traj)
           FDE_traj = compute_fde(preds_traj,gts_traj)
+          MY_DE_traj = compute_all_de(preds_traj,gts_traj)
           total_errors_traj += np.array(errors_traj)      
           total_ade_traj += ADE_traj
           total_fde_traj += FDE_traj
           
-          print(ADE,FDE,ADE_traj,FDE_traj)
+          print("ADE:", ADE)
+          print("FDE:", FDE)
+          print("ADE_traj:", ADE_traj)
+          print("FDE_traj:", FDE_traj)
+          print("MPJPE:", MPJPE)
+        #   print("MPJPE over time:", MPJPE_over_time)
+          print("custom error vals below")
+        #   print(MY_DE,MY_DE_traj)
+          plot_joint_distances(MPJPE)
+        #   plot_displacement_errors(MY_DE)
+        #   plot_displacement_errors(MPJPE)
+        #   plot_displacement_errors(MY_DE)
+        #   plot_displacement_errors(MY_DE_traj)
+          print()
 
               
       maximum_time = params['target_seq_len']/params['frame_rate']
@@ -252,7 +406,9 @@ def Calc_error_h36mdataset():
       
       avg_ADE = total_ade 
       avg_FDE = total_fde 
-      print(avg_ADE,avg_FDE)
+      print()
+      print("average ADE: ", avg_ADE)
+      print("average FDE: ", avg_FDE)
       print()
 
       total_errors_traj = total_errors_traj
@@ -389,7 +545,7 @@ class visual():
                 traj_decoder_fn 
             )
           
-          model.load_state_dict(torch.load(args.model_file, map_location=_DEVICE))
+          model.load_state_dict(torch.load(args.model_file, map_location=_DEVICE, weights_only=True))
           model.to(_DEVICE)
           model.eval()
                   
@@ -548,8 +704,8 @@ class visual():
               return 0
 
 if __name__ == '__main__':
-   
-#   visual().visualize_h36mdataset()
+   torch.multiprocessing.set_start_method('fork') 
+#    visual().visualize_h36mdataset()
    Calc_error_h36mdataset()
 
 
