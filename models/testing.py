@@ -33,9 +33,9 @@ import json
 import time
 import cv2
 
+import matplotlib
 from matplotlib import image
-from matplotlib import pyplot as plt
-from PIL import Image, ImageDraw
+import matplotlib.pyplot as plt
 
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score
@@ -131,30 +131,6 @@ def compute_mpjpe(pred, gt):
     
     return average_distances # Average across all joints and all frames
 
-# def compute_mpjpe_over_time(pred, gt):
-#     """
-#     Computes MPJPE for each timestep in the sequence.
-    
-#     Args:
-#         pred (numpy array): Predicted joint positions [batch_size, seq_length, num_joints, joint_dim].
-#         gt (numpy array): Ground-truth joint positions [batch_size, seq_length, num_joints, joint_dim].
-    
-#     Returns:
-#         numpy array: MPJPE values for each timestep.
-#     """
-#     batch_size, seq_length, num_joints, joint_dim = pred.shape
-#     mpjpe_per_frame = []
-    
-#     for t in range(seq_length):
-#         frame_pred = pred[:, t, :, :]
-#         frame_gt = gt[:, t, :, :]
-#         diff = frame_pred - frame_gt
-#         dist = np.linalg.norm(diff, axis=2)  # Distance for each joint
-#         mpjpe = dist.mean()  # Average across all joints and sequences
-#         mpjpe_per_frame.append(mpjpe)
-    
-#     return np.array(mpjpe_per_frame)
-
 def compute_all_de(pred, gt):
     diff = pred - gt
     temp = np.linalg.norm(diff, axis=2)
@@ -226,6 +202,7 @@ def plot_joint_distances(average_distances):
     plt.legend(loc="upper right", bbox_to_anchor=(1.3, 1))  # Place the legend outside the plot
     plt.grid(True, linestyle="--", alpha=0.7)
     plt.tight_layout()
+    plt.savefig("mpjpe_over_time.png")
     plt.show()
 
 def compute_stats(pred, gt, mrt):
@@ -333,6 +310,8 @@ def Calc_error_h36mdataset():
           preds = eval_dataset_fn.dataset.unnormalize(prediction)
           preds_traj = eval_dataset_fn.dataset.unnormalize_traj(traj_prediction)
 
+          export_preds_txt(preds)
+
           print("preds shape: ", preds.shape)
           print("gts shape: ", gts.shape)
           print(type(preds))
@@ -341,16 +320,6 @@ def Calc_error_h36mdataset():
           print("gts traj shape: ", gts_traj.shape)
           print(type(preds_traj))
           print(type(gts_traj))
-
-          
-
-          # Start here
-          # need to find out what format preds and preds_traj are in
-          # we are doing full pose
-          # 
-
-          preds_reshaped = preds.reshape(preds.shape[0], preds.shape[1], -1, 3)
-          gts_reshaped = gts.reshape(gts.shape[0], gts.shape[1], -1, 3)
           
           maximum_estimation_time = params['target_seq_len']/params['frame_rate']
           
@@ -358,7 +327,6 @@ def Calc_error_h36mdataset():
           ADE = compute_ade(preds,gts)
           FDE = compute_fde(preds,gts)
           MPJPE = compute_mpjpe(preds, gts)
-        #   MPJPE_over_time = compute_mpjpe_over_time(preds_reshaped, gts_reshaped)
           MY_DE = compute_all_de(preds,gts)
           total_errors += np.array(errors)      
           total_ade += ADE
@@ -378,14 +346,8 @@ def Calc_error_h36mdataset():
           print("ADE_traj:", ADE_traj)
           print("FDE_traj:", FDE_traj)
           print("MPJPE:", MPJPE)
-        #   print("MPJPE over time:", MPJPE_over_time)
           print("custom error vals below")
-        #   print(MY_DE,MY_DE_traj)
           plot_joint_distances(MPJPE)
-        #   plot_displacement_errors(MY_DE)
-        #   plot_displacement_errors(MPJPE)
-        #   plot_displacement_errors(MY_DE)
-        #   plot_displacement_errors(MY_DE_traj)
           print()
 
               
@@ -425,6 +387,21 @@ def Calc_error_h36mdataset():
       avg_FDE_traj = total_fde_traj
       print(avg_ADE_traj,avg_FDE_traj)
       return 0
+
+def export_preds_txt(preds):
+    """Export predictions to a text file."""
+    for i in range(len(preds)):
+        for j in range(len(preds[i])): # should be 20
+            with open(f"../data/predictions/all_stpotr_pred_{j}.txt", 'a') as file:
+                file.write('[')
+                for k in range(len(preds[i][j])):
+                    file.write(str(preds[i][j][k]))
+                    if k != len(preds[i][j])-1:
+                        file.write(' ')
+                file.write(']')
+                file.write('\n')
+                file.close()
+
 
 class visual():
     def __init__(self):

@@ -1,0 +1,12 @@
+.venv
+./data/predictions
+data/
+pretrained_model/
+./models/__pycache__/
+models/
+./training/__pycache__/
+training/
+./utils/__pycache__/
+utils/
+./visualize/__pycache__/
+visualize/

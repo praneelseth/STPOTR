@@ -215,6 +215,8 @@ class H36MDataset(torch.utils.data.Dataset):
     """
     super(H36MDataset, self).__init__(**kwargs)
     self._params = params
+    #print("H36MDataset params:", self._params)  # Debug print to check params in class
+
     self._train_ids = [1,5,6,7,8] 
     self._test_ids = [9,11]
     self._test_subject = [9,11]
@@ -757,6 +759,7 @@ class H36MDataset(torch.utils.data.Dataset):
         for action in sorted(self.my_keys):
             action_sequence = tot_action_sequence[action]
             n_frames,njoints, dims = action_sequence.shape
+            #print("Params in stat_calculation:", self._params)  # Debug print to check params in method
             frq=self._params['frame_rate']
             even_idx = range(0, n_frames, int(50//frq))
             action_sequence = action_sequence[even_idx, :]
@@ -1324,9 +1327,13 @@ if __name__ == '__main__':
   parser.add_argument('--pose_format', type=str, default='expmap')
   parser.add_argument('--steps_per_epoch', type=int, default=200)
   parser.add_argument('--eval_num_seeds', type=int, default=8)
+  parser.add_argument('--frame_rate', type=int, default=50)  # Add this line
+
   args = parser.parse_args()
 
   params = vars(args)
+  print("Params:", params)  # Debug print to check params
+
   dataset_t, dataset_v = dataset_factory(params)
 
   import matplotlib.pyplot as plt
