@@ -150,13 +150,13 @@ class GC_Block(nn.Module):
     """Forward pass of the residual module"""
     y = self.gc1(x)
     b, n, f = y.shape
-    y = self.bn1(y.view(b, -1)).view(b, n, f)
+    y = self.bn1(y.reshape(b, -1)).reshape(b, n, f)
     y = self.act_f(y)
     y = self.do(y)
 
     y = self.gc2(y)
     b, n, f = y.shape
-    y = self.bn2(y.view(b, -1)).view(b, n, f)
+    y = self.bn2(y.reshape(b, -1)).reshape(b, n, f)
     y = self.act_f(y)
     y = self.do(y)
 
@@ -232,7 +232,7 @@ class PoseGCN(nn.Module):
     if len(x.size()) < 3:
       _, D = x.size()
       # seq_len, batch_size, input_dim
-      x = x.view(self._seq_len, -1, D)
+      x = x.reshape(self._seq_len, -1, D)
       # [batch_size, seq_len, input_dim]
       x = torch.transpose(x, 0, 1) 
       # [batch_size, input_dim, seq_len]
@@ -246,7 +246,7 @@ class PoseGCN(nn.Module):
     Args:
       y: Input tensor of shape [batch_size, n_nodes, output_features].
     """
-    y = y.view(-1, self._n_nodes*self._output_features)
+    y = y.reshape(-1, self._n_nodes*self._output_features)
     return y
 
   def forward(self, x):
@@ -257,12 +257,12 @@ class PoseGCN(nn.Module):
     """
     # [batch_size, model_dim*n_nodes]
     x = self._front(x)
-    x = x.view(-1, self._n_nodes, self._hidden_dim)
+    x = x.reshape(-1, self._n_nodes, self._hidden_dim)
 
     # [batch_size, n_joints, model_dim]
     y = self.gc1(x)
     b, n, f = y.shape
-    y = self.bn1(y.view(b, -1)).view(b, n, f)
+    y = self.bn1(y.reshape(b, -1)).reshape(b, n, f)
     y = self.act_f(y)
     y = self.do(y)
 
@@ -346,9 +346,9 @@ class SimpleEncoder(nn.Module):
     """
     B, S, D = x.size()
     # [batch_size, n_joints, model_dim]
-    y = self.gc1(x.view(-1, self._output_nodes, self._input_features))
+    y = self.gc1(x.reshape(-1, self._output_nodes, self._input_features))
     b, n, f = y.shape
-    y = self.bn1(y.view(b, -1)).view(b, n, f)
+    y = self.bn1(y.reshape(b, -1)).reshape(b, n, f)
     y = self.act_f(y)
     y = self.do(y)
 
@@ -359,10 +359,10 @@ class SimpleEncoder(nn.Module):
     y = self.gc2(y)
 
     # [batch_size, model_dim]
-    y = self._back(y.view(-1, self._model_dim*self._output_nodes))
+    y = self._back(y.reshape(-1, self._model_dim*self._output_nodes))
 
     # [batch_size, n_poses, model_dim]
-    y = y.view(B, S, self._model_dim)
+    y = y.reshape(B, S, self._model_dim)
 
     return y
 

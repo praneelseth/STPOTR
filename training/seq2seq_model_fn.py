@@ -640,7 +640,7 @@ class ModelFn(object):
 
     # for j, sample in enumerate(self._eval_dataset_fn):
     for k in sample.keys():
-      if (k=='decoder_outputs_action') or (k=='actions') or (k=='decoder_outputs_action_traj'):
+      if (k=='decoder_outputs_action') or (k=='actions') or (k=='decoder_outputs_action_traj') or (k=='data_sizes'):
         continue
       sample[k] = sample[k].squeeze().to(_DEVICE)
 
@@ -662,7 +662,7 @@ class ModelFn(object):
 ##############
     # for j, sample in enumerate(self._eval_dataset_fn):
     for k in sample2.keys():
-      if (k=='decoder_outputs_action') or (k=='actions') or (k=='decoder_outputs_action_traj'):
+      if (k=='decoder_outputs_action') or (k=='actions') or (k=='decoder_outputs_action_traj') or (k=='data_sizes'):
         continue
       sample2[k] = sample2[k].squeeze().to(_DEVICE)
 

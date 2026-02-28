@@ -111,7 +111,6 @@ class STPOTRModelFn(seq2seq_model_fn.ModelFn):
     loss_fn_traj = self.select_loss_fn()
     for l in range(len(decoder_pred_traj)):
       trajectory_loss += loss_fn_traj(decoder_pred_traj[l], decoder_gt_traj)
-      
     trajectory_loss = trajectory_loss/len(decoder_pred_traj)
     
     ### velocity loss
@@ -119,7 +118,10 @@ class STPOTRModelFn(seq2seq_model_fn.ModelFn):
     velocity_loss = 0
     b,f,j = decoder_pred[-1].shape
     for l in range(len(decoder_pred)):
-        velocity_loss += loss_fn_velocity((decoder_pred[0][:,1:f,:]-decoder_pred[0][:,0:f-1,:]) , (decoder_gt[:,1:f,:]-decoder_gt[:,0:f-1,:]))
+        # Calculate velocity loss
+        vel_pred = decoder_pred[0][:,1:f,:] - decoder_pred[0][:,0:f-1,:]
+        vel_gt = decoder_gt[:,1:f,:] - decoder_gt[:,0:f-1,:]
+        velocity_loss += loss_fn_velocity(vel_pred, vel_gt)
         
     velocity_loss = velocity_loss/len(decoder_pred)
     
@@ -148,6 +150,9 @@ class STPOTRModelFn(seq2seq_model_fn.ModelFn):
 def dataset_factory_total(params):
   if params['dataset'] == 'h36m_v3':
     return H36MDataset_v3.dataset_factory_total(params)
+  elif params['dataset'] == 'combined':
+    import datasets.stpotr_dataset as CombinedDataset
+    return CombinedDataset.dataset_factory_total(params)
   else:
     raise ValueError('Unknown dataset {}'.format(params['dataset']))
 
@@ -155,6 +160,9 @@ def dataset_factory_total(params):
 def dataset_factory(params):
   if params['dataset'] == 'h36m_v3':
     return H36MDataset_v3.dataset_factory(params)
+  elif params['dataset'] == 'combined':
+    import datasets.stpotr_dataset as CombinedDataset
+    return CombinedDataset.dataset_factory(params)
   else:
     raise ValueError('Unknown dataset {}'.format(params['dataset']))
 
